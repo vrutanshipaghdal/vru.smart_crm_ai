@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart CRM AI - Sales Automation</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="/static/style.css?v=3" />
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Navigation Bar -->
+  <header class="glass-header border-b border-slate-200/80 sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between shadow-xs">
+    <div class="flex items-center space-x-3.5">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-500/20 text-white">
+        <i data-lucide="sparkles" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-xl font-extrabold tracking-tight text-slate-900">Smart CRM <span class="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">AI</span></h1>
+          <span class="px-2.5 py-0.5 text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 rounded-full">Sales Copilot</span>
+        </div>
+        <p class="text-xs text-slate-500">Lead Scoring • Sentiment Analysis • AI Reply Drafts • Pipeline Automation</p>
+      </div>
+    </div>
+
+    <!-- Header Actions -->
+    <div class="flex items-center space-x-3">
+      <!-- Follow-up Alert Bell -->
+      <button onclick="switchTab('followups')" class="relative p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-600 hover:text-slate-900 transition-all border border-slate-200/60" title="Follow-up Reminders">
+        <i data-lucide="bell" class="w-4 h-4"></i>
+        <span id="header-alert-badge" class="hidden absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full text-[11px] font-bold flex items-center justify-center shadow-sm animate-pulse">0</span>
+      </button>
+
+      <!-- New Lead Button -->
+      <button onclick="openNewLeadModal()" class="flex items-center space-x-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white px-4 py-2 rounded-xl font-semibold text-sm shadow-md shadow-indigo-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        <span>New Lead / Customer</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Urgent Alert Banner -->
+  <div id="urgent-alert-banner" class="hidden bg-gradient-to-r from-rose-50 via-rose-100/70 to-rose-50 border-b border-rose-200 px-6 py-2.5 flex items-center justify-between text-sm text-rose-800">
+    <div class="flex items-center space-x-2">
+      <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600 animate-bounce"></i>
+      <span id="urgent-alert-text" class="font-medium text-xs">Attention: You have customer follow-up reminders due today!</span>
+    </div>
+    <button onclick="switchTab('followups')" class="text-xs font-bold text-rose-700 hover:text-rose-900 underline">View Follow-ups &rarr;</button>
+  </div>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+
+    <!-- KPI Metric Stat Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+      <!-- Total Leads -->
+      <div id="metric-total" class="kpi-card p-4 flex flex-col justify-between cursor-pointer" title="View total-lead details">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-xs font-semibold uppercase tracking-wider">Total Leads</span>
+          <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="users" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline justify-between">
+          <span id="stat-total-leads" class="text-2xl font-extrabold text-slate-900">0</span>
+          <span class="text-[11px] font-medium text-slate-500">In CRM</span>
+        </div>
+      </div>
+
+      <!-- High Priority Leads -->
+      <div id="metric-priority" class="kpi-card p-4 flex flex-col justify-between cursor-pointer" title="View priority-lead details">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-xs font-semibold uppercase tracking-wider">High Priority</span>
+          <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <i data-lucide="flame" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline justify-between">
+          <span id="stat-high-priority" class="text-2xl font-extrabold text-amber-600">0</span>
+          <span class="text-[11px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">AI Flagged</span>
+        </div>
+      </div>
+
+      <!-- Pending Follow-ups -->
+      <div id="metric-followups" class="kpi-card p-4 flex flex-col justify-between cursor-pointer" title="View follow-up details">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-xs font-semibold uppercase tracking-wider">Follow-ups</span>
+          <div class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+            <i data-lucide="clock" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline justify-between">
+          <span id="stat-pending-followups" class="text-2xl font-extrabold text-rose-600">0</span>
+          <span class="text-[11px] font-medium text-slate-500">Due today</span>
+        </div>
+      </div>
+
+      <!-- Deals Won -->
+      <div id="metric-won" class="kpi-card p-4 flex flex-col justify-between cursor-pointer" title="View won-deal details">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-xs font-semibold uppercase tracking-wider">Deals Won</span>
+          <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="trophy" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline justify-between">
+          <span id="stat-won-deals" class="text-2xl font-extrabold text-emerald-600">0</span>
+          <span id="stat-active-customers" class="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">0 Customers</span>
+        </div>
+      </div>
+
+      <!-- Conversion Rate -->
+      <div id="metric-conversion" class="kpi-card p-4 flex flex-col justify-between cursor-pointer" title="View conversion-rate details">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-xs font-semibold uppercase tracking-wider">Conversion</span>
+          <div class="w-7 h-7 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center">
+            <i data-lucide="trending-up" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline justify-between">
+          <span id="stat-conversion-rate" class="text-2xl font-extrabold text-cyan-700">0%</span>
+          <span class="text-[11px] font-medium text-slate-500">Win rate</span>
+        </div>
+      </div>
+
+      <!-- Sales Forecast -->
+      <div id="metric-forecast" class="kpi-card p-4 flex flex-col justify-between cursor-pointer" title="View forecast details">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-xs font-semibold uppercase tracking-wider">Forecast</span>
+          <div class="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+            <i data-lucide="indian-rupee" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline justify-between">
+          <span id="stat-sales-forecast" class="min-w-0 truncate text-lg font-extrabold text-purple-700">₹0</span>
+          <span class="shrink-0 text-[11px] font-medium text-slate-500">Pipeline</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation & Filter Toolbar -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div class="flex items-center space-x-1.5 bg-slate-200/70 p-1.5 rounded-2xl border border-slate-200/80">
+        <button onclick="switchTab('pipeline')" id="tab-btn-pipeline" class="tab-btn px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-2">
+          <i data-lucide="kanban" class="w-4 h-4"></i>
+          <span>Pipeline Stages</span>
+        </button>
+        <button onclick="switchTab('table')" id="tab-btn-table" class="tab-btn active px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-2">
+          <i data-lucide="list" class="w-4 h-4"></i>
+          <span>Leads Table</span>
+        </button>
+        <button onclick="switchTab('followups')" id="tab-btn-followups" class="tab-btn px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-2">
+          <i data-lucide="calendar-clock" class="w-4 h-4"></i>
+          <span>Follow-ups & Alerts</span>
+        </button>
+        <button onclick="switchTab('analytics')" id="tab-btn-analytics" class="tab-btn px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-2">
+          <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+          <span>Reports & Analytics</span>
+        </button>
+      </div>
+
+      <!-- Filters & Refresh -->
+      <div class="flex items-center space-x-3">
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input type="text" id="filter-search" oninput="debounceFetch()" placeholder="Search leads / company..." class="bg-white border border-slate-200 text-xs rounded-xl pl-10 pr-4 py-2.5 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 shadow-xs w-64 transition-all" />
+        </div>
+        <select id="filter-priority" onchange="loadLeads()" class="bg-white border border-slate-200 text-xs font-medium rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 shadow-xs transition-all">
+          <option value="All">All Priorities</option>
+          <option value="Urgent">Urgent</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+        <button onclick="refreshAllData()" title="Refresh" class="p-2.5 bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-xl border border-slate-200 shadow-xs transition-all">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB 1: PIPELINE KANBAN -->
+    <section id="tab-view-pipeline" class="tab-view hidden">
+      <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs mb-5">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-700">
+            <thead class="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 font-semibold border-b border-slate-200">
+              <tr>
+                <th class="px-6 py-4">Lead / Company</th>
+                <th class="px-5 py-4">Pipeline Stage</th>
+                <th class="px-5 py-4">Priority</th>
+                <th class="px-5 py-4">AI Score</th>
+                <th class="px-5 py-4">Sentiment</th>
+                <th class="px-5 py-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pipeline-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="hidden grid grid-cols-1 md:grid-cols-7 gap-3.5 overflow-x-auto pb-6 items-start min-h-[550px]">
+        
+        <!-- 1. New -->
+        <div class="pipeline-col p-3 flex flex-col border-blue-200/80 bg-blue-50/30" data-stage="New">
+          <div class="flex items-center justify-between pb-2.5 border-b border-blue-200/60 mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+              <span class="font-bold text-xs uppercase tracking-wider text-blue-900">1. New</span>
+            </div>
+            <span class="col-count text-xs font-bold bg-white text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full shadow-xs">0</span>
+          </div>
+          <div class="col-cards space-y-2.5 flex-1 min-h-[350px]" id="stage-New"></div>
+        </div>
+
+        <!-- 2. Contacted -->
+        <div class="pipeline-col p-3 flex flex-col border-amber-200/80 bg-amber-50/30" data-stage="Contacted">
+          <div class="flex items-center justify-between pb-2.5 border-b border-amber-200/60 mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+              <span class="font-bold text-xs uppercase tracking-wider text-amber-900">2. Contacted</span>
+            </div>
+            <span class="col-count text-xs font-bold bg-white text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full shadow-xs">0</span>
+          </div>
+          <div class="col-cards space-y-2.5 flex-1 min-h-[350px]" id="stage-Contacted"></div>
+        </div>
+
+        <!-- 3. Qualified -->
+        <div class="pipeline-col p-3 flex flex-col border-purple-200/80 bg-purple-50/30" data-stage="Qualified">
+          <div class="flex items-center justify-between pb-2.5 border-b border-purple-200/60 mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+              <span class="font-bold text-xs uppercase tracking-wider text-purple-900">3. Qualified</span>
+            </div>
+            <span class="col-count text-xs font-bold bg-white text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full shadow-xs">0</span>
+          </div>
+          <div class="col-cards space-y-2.5 flex-1 min-h-[350px]" id="stage-Qualified"></div>
+        </div>
+
+        <!-- 4. Demo -->
+        <div class="pipeline-col p-3 flex flex-col border-cyan-200/80 bg-cyan-50/30" data-stage="Demo">
+          <div class="flex items-center justify-between pb-2.5 border-b border-cyan-200/60 mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
+              <span class="font-bold text-xs uppercase tracking-wider text-cyan-900">4. Demo</span>
+            </div>
+            <span class="col-count text-xs font-bold bg-white text-cyan-700 border border-cyan-200 px-2 py-0.5 rounded-full shadow-xs">0</span>
+          </div>
+          <div class="col-cards space-y-2.5 flex-1 min-h-[350px]" id="stage-Demo"></div>
+        </div>
+
+        <!-- 5. Proposal -->
+        <div class="pipeline-col p-3 flex flex-col border-indigo-200/80 bg-indigo-50/30" data-stage="Proposal">
+          <div class="flex items-center justify-between pb-2.5 border-b border-indigo-200/60 mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+              <span class="font-bold text-xs uppercase tracking-wider text-indigo-900">5. Proposal</span>
+            </div>
+            <span class="col-count text-xs font-bold bg-white text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full shadow-xs">0</span>
+          </div>
+          <div class="col-cards space-y-2.5 flex-1 min-h-[350px]" id="stage-Proposal"></div>
+        </div>
+
+        <!-- 6. Won -->
+        <div class="pipeline-col p-3 flex flex-col border-emerald-300/80 bg-emerald-50/40" data-stage="Won">
+          <div class="flex items-center justify-between pb-2.5 border-b border-emerald-200/80 mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <span class="font-bold text-xs uppercase tracking-wider text-emerald-900">6. Won</span>
+            </div>
+            <span class="col-count text-xs font-bold bg-white text-emerald-700 border border-emerald-300 px-2 py-0.5 rounded-full shadow-xs">0</span>
+          </div>
+          <div class="col-cards space-y-2.5 flex-1 min-h-[350px]" id="stage-Won"></div>
+        </div>
+
+        <!-- 7. Lost -->
+        <div class="pipeline-col p-3 flex flex-col border-rose-200/80 bg-rose-50/40" data-stage="Lost">
+          <div class="flex items-center justify-between pb-2.5 border-b border-rose-200/80 mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+              <span class="font-bold text-xs uppercase tracking-wider text-rose-900">7. Lost</span>
+            </div>
+            <span class="col-count text-xs font-bold bg-white text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full shadow-xs">0</span>
+          </div>
+          <div class="col-cards space-y-2.5 flex-1 min-h-[350px]" id="stage-Lost"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 2: LEADS TABLE -->
+    <section id="tab-view-table" class="tab-view">
+      <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-700">
+            <thead class="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 font-semibold border-b border-slate-200">
+              <tr>
+                <th class="px-6 py-4">Lead / Company</th>
+                <th class="px-5 py-4">Contact</th>
+                <th class="px-5 py-4">Source & Budget</th>
+                <th class="px-5 py-4">Stage</th>
+                <th class="px-5 py-4">Priority</th>
+                <th class="px-5 py-4">AI Score & Sentiment</th>
+                <th class="px-5 py-4">Suggested Action</th>
+                <th class="px-5 py-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="leads-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+        <div id="table-empty-state" class="hidden p-10 text-center text-slate-400 text-sm font-medium">
+          No leads found matching your criteria.
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: FOLLOW-UPS -->
+    <section id="tab-view-followups" class="tab-view hidden space-y-4">
+      <div>
+        <h2 class="text-lg font-bold text-slate-900">Pending Follow-ups & Reminders</h2>
+        <p class="text-xs text-slate-500">Step 12 & 13: Due date alerts and customer reminder schedule</p>
+      </div>
+      <div id="followups-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      <div id="followups-empty-state" class="hidden p-12 text-center bg-white border border-slate-200 rounded-2xl shadow-xs">
+        <i data-lucide="check-circle-2" class="w-12 h-12 text-emerald-500 mx-auto mb-2 opacity-90"></i>
+        <h3 class="text-base font-bold text-slate-800">All caught up!</h3>
+        <p class="text-xs text-slate-500 mt-1">There are no pending customer follow-up reminders right now.</p>
+      </div>
+    </section>
+
+    <!-- TAB 4: REPORTS & ANALYTICS -->
+    <section id="tab-view-analytics" class="tab-view hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+          <h3 class="text-sm font-bold text-slate-900 mb-1">Pipeline Distribution</h3>
+          <p class="text-xs text-slate-500 mb-4">Leads across pipeline stages</p>
+          <div class="h-64 flex items-center justify-center"><canvas id="chart-pipeline"></canvas></div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+          <h3 class="text-sm font-bold text-slate-900 mb-1">Lead Sources</h3>
+          <p class="text-xs text-slate-500 mb-4">Website, Instagram, WhatsApp, Referral</p>
+          <div class="h-64 flex items-center justify-center"><canvas id="chart-sources"></canvas></div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+          <h3 class="text-sm font-bold text-slate-900 mb-1">Customer Sentiment</h3>
+          <p class="text-xs text-slate-500 mb-4">AI Sentiment Categorization</p>
+          <div class="h-64 flex items-center justify-center"><canvas id="chart-sentiment"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: ADD NEW LEAD -->
+  <div id="modal-new-lead" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-pop">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3.5">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Add New Customer / Lead</h3>
+            <p class="text-xs text-slate-500">Step 2: AI will analyze requirements upon saving</p>
+          </div>
+        </div>
+        <button onclick="closeModal('modal-new-lead')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-new-lead" onsubmit="handleCreateLead(event)" class="space-y-4 text-sm">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Customer Name *</label>
+            <input type="text" id="nl-name" required placeholder="e.g. Rajesh Patel" class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all text-xs font-medium" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Company</label>
+            <input type="text" id="nl-company" placeholder="e.g. Patel Exports Ltd" class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all text-xs font-medium" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Phone / WhatsApp</label>
+            <input type="text" id="nl-phone" placeholder="+91 98765 43210" class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all text-xs font-medium" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+            <input type="email" id="nl-email" placeholder="client@company.com" class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all text-xs font-medium" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Budget (INR ₹)</label>
+            <input type="number" id="nl-budget" placeholder="e.g. 75000" class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all text-xs font-medium" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Source</label>
+            <select id="nl-source" class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all text-xs font-medium">
+              <option value="Website">Website</option>
+              <option value="Instagram">Instagram</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Referral">Referral</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="Cold Call">Cold Call</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Priority</label>
+            <select id="nl-priority" class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white text-xs font-medium">
+              <option value="">AI decide</option>
+              <option value="Urgent">Urgent</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Customer Sentiment</label>
+            <select id="nl-sentiment" class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white text-xs font-medium">
+              <option value="">AI decide</option>
+              <option value="Positive">Positive</option>
+              <option value="Neutral">Neutral</option>
+              <option value="Negative">Negative</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Requirement *</label>
+          <textarea id="nl-requirement" rows="3" required placeholder="Describe customer needs (e.g. Urgent requirement for automated CRM with WhatsApp integration for 15 sales team)..." class="w-full bg-slate-50/80 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all text-xs"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end space-x-3 pt-2">
+          <button type="button" onclick="closeModal('modal-new-lead')" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold">Cancel</button>
+          <button type="submit" id="btn-save-lead" class="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-semibold text-xs shadow-md shadow-indigo-600/20 transition-all">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span>Save & Run AI</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: LEAD DETAIL & AI COPILOT -->
+  <div id="modal-lead-detail" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white border border-slate-200 rounded-3xl max-w-5xl w-full h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-pop">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-50/90 px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center space-x-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center font-extrabold text-lg shadow-xs" id="modal-lead-avatar">L</div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h2 class="text-lg font-bold text-slate-900" id="modal-lead-name">Lead Name</h2>
+              <span id="modal-lead-stage-badge" class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">New</span>
+              <span id="modal-lead-customer-badge" class="hidden px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Active Customer</span>
+            </div>
+            <p class="text-xs text-slate-500" id="modal-lead-company-source">Company • Source</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <div class="flex items-center space-x-1.5 text-xs bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs">
+            <span class="text-slate-500 font-medium">Pipeline:</span>
+            <select id="modal-select-stage" onchange="changeLeadStageFromModal()" class="bg-transparent text-slate-800 font-semibold focus:outline-none cursor-pointer">
+              <option value="New">1. New</option>
+              <option value="Contacted">2. Contacted</option>
+              <option value="Qualified">3. Qualified</option>
+              <option value="Demo">4. Demo</option>
+              <option value="Proposal">5. Proposal</option>
+              <option value="Won">6. Won (Customer)</option>
+              <option value="Lost">7. Lost</option>
+            </select>
+          </div>
+
+          <button onclick="openCloseDealModal()" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold transition-all">
+            Close Deal (Won/Lost)
+          </button>
+
+          <button onclick="closeModal('modal-lead-detail')" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+        
+        <!-- Left: Customer Info & Notes -->
+        <div class="lg:col-span-7 p-6 space-y-5 bg-white">
+          <div class="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs">
+            <div>
+              <span class="text-slate-500 block font-medium">Phone / WhatsApp</span>
+              <span id="modal-lead-phone" class="font-bold text-slate-800">-</span>
+            </div>
+            <div>
+              <span class="text-slate-500 block font-medium">Email</span>
+              <span id="modal-lead-email" class="font-bold text-slate-800 truncate block">-</span>
+            </div>
+            <div>
+              <span class="text-slate-500 block font-medium">Budget</span>
+              <span id="modal-lead-budget" class="font-extrabold text-emerald-600">₹0</span>
+            </div>
+          </div>
+
+          <div>
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Requirement</span>
+            <div id="modal-lead-requirement" class="p-3.5 mt-1 bg-slate-50/80 border border-slate-200 rounded-2xl text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">-</div>
+          </div>
+
+          <div class="flex flex-wrap gap-2 pt-1">
+            <a id="btn-call-lead" href="#" class="flex items-center space-x-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-semibold border border-blue-200 transition-colors">
+              <i data-lucide="phone" class="w-3.5 h-3.5"></i><span>Call</span>
+            </a>
+            <a id="btn-whatsapp-lead" href="#" target="_blank" class="flex items-center space-x-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-semibold border border-emerald-200 transition-colors">
+              <i data-lucide="message-square" class="w-3.5 h-3.5"></i><span>WhatsApp</span>
+            </a>
+            <a id="btn-email-lead" href="#" class="flex items-center space-x-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-semibold border border-indigo-200 transition-colors">
+              <i data-lucide="mail" class="w-3.5 h-3.5"></i><span>Email</span>
+            </a>
+            <button onclick="openScheduleFollowUpModal()" class="flex items-center space-x-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl text-xs font-semibold border border-amber-200 transition-colors">
+              <i data-lucide="calendar" class="w-3.5 h-3.5"></i><span>Follow-up</span>
+            </button>
+          </div>
+
+          <!-- Add Note Form -->
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+                <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-indigo-600"></i>
+                <span>Add Note / Customer Conversation</span>
+              </span>
+              <div class="flex items-center space-x-2 text-xs">
+                <select id="note-type" class="bg-white border border-slate-200 text-slate-700 rounded-lg px-2 py-1 focus:outline-none shadow-xs font-medium">
+                  <option value="Call">Call Log</option>
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="Email">Email</option>
+                  <option value="Meeting">Meeting</option>
+                  <option value="Note">Note</option>
+                </select>
+                <select id="note-direction" class="bg-white border border-slate-200 text-slate-700 rounded-lg px-2 py-1 focus:outline-none shadow-xs font-medium">
+                  <option value="Inbound">Customer Said (Inbound)</option>
+                  <option value="Outbound">Salesperson (Outbound)</option>
+                </select>
+              </div>
+            </div>
+
+            <textarea id="note-content" rows="2" placeholder="Record what the customer said (AI will re-analyze score and generate new reply draft)..." class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"></textarea>
+
+            <div class="flex justify-end">
+              <button onclick="submitInteractionNote()" class="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                <span>Save Note & Re-Analyze AI</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Timeline -->
+          <div class="space-y-2">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Conversation History</span>
+            <div id="modal-lead-timeline" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+
+        <!-- Right: AI Copilot -->
+        <div class="lg:col-span-5 bg-gradient-to-b from-indigo-50/40 via-purple-50/20 to-slate-50/60 p-6 space-y-5 flex flex-col justify-between">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-xs">
+                  <i data-lucide="bot" class="w-4 h-4"></i>
+                </div>
+                <h3 class="text-sm font-bold text-slate-900">AI Intelligence Hub</h3>
+              </div>
+              <button onclick="triggerManualReanalyze()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center space-x-1">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i><span>Re-Analyze</span>
+              </button>
+            </div>
+
+            <!-- Score / Sentiment / Priority -->
+            <div class="grid grid-cols-3 gap-2.5">
+              <div class="bg-white border border-slate-200 rounded-2xl p-3 text-center shadow-xs">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Lead Score</span>
+                <span id="modal-ai-score" class="text-2xl font-black text-indigo-600">0</span>
+                <span id="modal-ai-category" class="text-[10px] font-bold block text-slate-500">Medium</span>
+              </div>
+              <div class="bg-white border border-slate-200 rounded-2xl p-3 text-center shadow-xs">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Sentiment</span>
+                <span id="modal-ai-sentiment" class="text-xs font-bold px-2 py-0.5 rounded-full inline-block mt-2 bg-slate-100 text-slate-700">Neutral</span>
+              </div>
+              <div class="bg-white border border-slate-200 rounded-2xl p-3 text-center shadow-xs">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Priority</span>
+                <span id="modal-ai-priority" class="text-xs font-bold px-2 py-0.5 rounded-full inline-block mt-2 bg-slate-100 text-slate-700">Medium</span>
+              </div>
+            </div>
+
+            <!-- Suggested Action -->
+            <div class="bg-indigo-50/80 border border-indigo-200 rounded-2xl p-3.5 space-y-1">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-700 flex items-center space-x-1">
+                <i data-lucide="compass" class="w-3.5 h-3.5"></i><span>Suggested Next Action</span>
+              </span>
+              <p id="modal-ai-action" class="text-xs text-indigo-950 leading-relaxed font-semibold">Evaluating...</p>
+            </div>
+
+            <!-- Conversation Summary -->
+            <div class="space-y-1">
+              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">AI Conversation Summary</span>
+              <p id="modal-ai-summary" class="text-xs text-slate-700 bg-white border border-slate-200 rounded-2xl p-3.5 leading-relaxed shadow-xs">No summary yet.</p>
+            </div>
+
+            <!-- Human Review Draft Box -->
+            <div class="space-y-2 border-t border-slate-200 pt-3.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                  <i data-lucide="file-edit" class="w-3.5 h-3.5 text-amber-600"></i>
+                  <span>AI Follow-up Draft</span>
+                </span>
+                <span class="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md">Human Review</span>
+              </div>
+
+              <textarea id="modal-ai-draft-reply" rows="5" class="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-800 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-mono shadow-xs" placeholder="Draft reply..."></textarea>
+
+              <div class="flex items-center justify-between gap-2 pt-1">
+                <button onclick="copyDraftToClipboard()" class="p-2 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 rounded-xl text-xs shadow-xs" title="Copy"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                <div class="flex items-center space-x-2">
+                  <button onclick="sendDraftViaWhatsApp()" class="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all">
+                    <i data-lucide="message-circle" class="w-3.5 h-3.5"></i><span>Approve & WhatsApp</span>
+                  </button>
+                  <button onclick="sendDraftViaEmail()" class="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all">
+                    <i data-lucide="mail" class="w-3.5 h-3.5"></i><span>Approve & Email</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="text-[10px] text-slate-400 text-center border-t border-slate-200 pt-3 font-medium">
+            Rule: AI suggestion &rarr; Human Review &rarr; WhatsApp / Email / Deal decision
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SCHEDULE FOLLOW-UP -->
+  <div id="modal-schedule-followup" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-pop">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+          <i data-lucide="calendar" class="w-4 h-4 text-amber-600"></i>
+          <span>Schedule Follow-up Date</span>
+        </h3>
+        <button onclick="closeModal('modal-schedule-followup')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="form-followup" onsubmit="handleCreateFollowUp(event)" class="space-y-4 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Due Date & Time *</label>
+          <input type="datetime-local" id="fu-date" required class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white text-xs font-medium" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Reminder Note / Agenda</label>
+          <input type="text" id="fu-note" placeholder="e.g. Call to discuss proposal approval" class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white text-xs font-medium" />
+        </div>
+
+        <div class="flex items-center justify-end space-x-3 pt-2">
+          <button type="button" onclick="closeModal('modal-schedule-followup')" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold">Cancel</button>
+          <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold transition-all">Set Reminder</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CLOSE DEAL -->
+  <div id="modal-close-deal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-pop">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+          <i data-lucide="check-check" class="w-4 h-4 text-indigo-600"></i>
+          <span>Close Deal (Won / Lost)</span>
+        </h3>
+        <button onclick="closeModal('modal-close-deal')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="form-close-deal" onsubmit="handleCloseDeal(event)" class="space-y-4 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Outcome *</label>
+          <div class="grid grid-cols-2 gap-3">
+            <button type="button" onclick="selectOutcome('Won')" id="btn-outcome-won" class="p-3 rounded-xl border text-center font-bold text-xs transition-all border-emerald-500 bg-emerald-50 text-emerald-800">
+              Deal Won (Customer)
+            </button>
+            <button type="button" onclick="selectOutcome('Lost')" id="btn-outcome-lost" class="p-3 rounded-xl border text-center font-bold text-xs transition-all border-slate-200 bg-slate-50 text-slate-500">
+              Deal Lost
+            </button>
+          </div>
+        </div>
+
+        <div id="section-deal-won" class="space-y-2">
+          <label class="block text-xs font-semibold text-slate-700">Final Deal Value (INR ₹)</label>
+          <input type="number" id="cd-deal-value" placeholder="e.g. 75000" class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white text-xs font-medium" />
+        </div>
+
+        <div id="section-deal-lost" class="hidden space-y-2">
+          <label class="block text-xs font-semibold text-slate-700">Reason for Lost Deal *</label>
+          <select id="cd-lost-reason" class="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white text-xs font-medium">
+            <option value="Budget Constraint">Budget Constraint</option>
+            <option value="Competitor Selected">Competitor Selected</option>
+            <option value="Feature Mismatch">Missing Features</option>
+            <option value="Postponed">Project Postponed</option>
+            <option value="No Response">Unresponsive Lead</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-end space-x-3 pt-2">
+          <button type="button" onclick="closeModal('modal-close-deal')" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold">Cancel</button>
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold transition-all">Confirm & Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2"></div>
+
+  <div id="modal-metric-detail" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
+    <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 id="metric-detail-title" class="text-base font-bold text-slate-900">Metric details</h3>
+        <button onclick="closeModal('modal-metric-detail')" class="text-slate-400 hover:text-slate-700 text-xl">×</button>
+      </div>
+      <div id="metric-detail-content" class="pt-4 text-sm text-slate-700"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=15"></script>
+</body>
+</html>
