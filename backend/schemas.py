@@ -1,6 +1,31 @@
-﻿from pydantic import BaseModel, Field
+import re
+from pydantic import BaseModel, Field
+from pydantic import field_validator
 from typing import Optional, List
 from datetime import datetime
+
+EMAIL_PATTERN = re.compile(
+    r"^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+    r"@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$"
+)
+
+
+def validate_email_address(value: str) -> str:
+    email = value.strip()
+    if not EMAIL_PATTERN.fullmatch(email):
+        raise ValueError("Enter a valid email address, such as name@example.com.")
+    return email
+
+
+def validate_indian_mobile_number(value: str) -> str:
+    phone = value.strip()
+    compact_phone = re.sub(r"[\s-]", "", phone)
+    if compact_phone.startswith("+91"):
+        compact_phone = compact_phone[3:]
+    if not re.fullmatch(r"[6-9][0-9]{9}", compact_phone):
+        raise ValueError("Enter a valid 10-digit Indian mobile number, optionally prefixed with +91.")
+    return phone
+
 
 class InteractionBase(BaseModel):
     type: str = "Note" # Call, Email, WhatsApp, Meeting, Note
@@ -55,8 +80,8 @@ class AIAnalysisResponse(BaseModel):
 
 class LeadCreate(BaseModel):
     name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
+    email: str
+    phone: str
     company: Optional[str] = None
     requirement: Optional[str] = None
     budget: Optional[float] = 0.0
@@ -64,6 +89,43 @@ class LeadCreate(BaseModel):
     # Optional sales-user overrides.  When omitted, AI determines both values.
     sentiment: Optional[str] = None
     priority: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return validate_email_address(value)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        return validate_indian_mobile_number(value)
+
+
+class LeadUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[str] = None
+    requirement: Optional[str] = None
+    budget: Optional[float] = None
+    source: Optional[str] = None
+    sentiment: Optional[str] = None
+    priority: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            raise ValueError("Email cannot be empty.")
+        return validate_email_address(value)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            raise ValueError("Phone number cannot be empty.")
+        return validate_indian_mobile_number(value)
+
 
 class LeadStatusUpdate(BaseModel):
     status: str

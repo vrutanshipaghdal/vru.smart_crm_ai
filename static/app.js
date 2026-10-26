@@ -2,6 +2,7 @@
 
 let allLeads = [];
 let currentLead = null;
+let editingLeadId = null;
 let debounceTimer = null;
 let charts = { pipeline: null, sources: null, sentiment: null };
 
@@ -314,6 +315,9 @@ function renderTable() {
           <button onclick="event.stopPropagation(); openLeadDetailModal(${lead.id})" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl font-semibold border border-indigo-200 transition-all">
             AI Hub &rarr;
           </button>
+          <button onclick="event.stopPropagation(); openEditLeadModal(${lead.id})" class="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl font-semibold border border-slate-200 transition-all">
+            Edit
+          </button>
         </div>
       </td>
     `;
@@ -419,8 +423,43 @@ function closeModal(modalId) {
 }
 
 function openNewLeadModal() {
+  editingLeadId = null;
   const form = document.getElementById('form-new-lead');
   if (form) form.reset();
+  document.getElementById('nl-requirement').required = true;
+  document.querySelector('#modal-new-lead h3').textContent = 'Add New Customer / Lead';
+  document.querySelector('#modal-new-lead p').textContent = 'Step 2: AI will analyze requirements upon saving';
+  document.getElementById('btn-save-lead').innerHTML = '<i data-lucide="sparkles" class="w-4 h-4"></i><span>Save & Run AI</span>';
+  openModal('modal-new-lead');
+}
+
+function openEditLeadModal(leadId) {
+  const lead = allLeads.find(item => item.id === leadId) || (currentLead?.id === leadId ? currentLead : null);
+  if (!lead) {
+    showToast('Unable to find this lead. Refresh and try again.', 'error');
+    return;
+  }
+
+  editingLeadId = leadId;
+  document.getElementById('nl-name').value = lead.name || '';
+  document.getElementById('nl-company').value = lead.company || '';
+  document.getElementById('nl-phone').value = lead.phone || '';
+  document.getElementById('nl-email').value = lead.email || '';
+  document.getElementById('nl-budget').value = lead.budget ?? 0;
+  const sourceSelect = document.getElementById('nl-source');
+  const source = lead.source || 'Website';
+  if (![...sourceSelect.options].some(option => option.value === source)) {
+    sourceSelect.add(new Option(source, source));
+  }
+  sourceSelect.value = source;
+  document.getElementById('nl-priority').value = lead.latest_analysis?.priority || '';
+  document.getElementById('nl-sentiment').value = lead.latest_analysis?.sentiment || '';
+  document.getElementById('nl-requirement').value = lead.requirement || '';
+  document.getElementById('nl-requirement').required = false;
+  document.querySelector('#modal-new-lead h3').textContent = 'Edit Customer / Lead';
+  document.querySelector('#modal-new-lead p').textContent = 'Correct the lead details and save your changes';
+  document.getElementById('btn-save-lead').innerHTML = '<i data-lucide="save" class="w-4 h-4"></i><span>Save Changes</span>';
+  closeModal('modal-lead-detail');
   openModal('modal-new-lead');
 }
 
@@ -428,8 +467,10 @@ function openNewLeadModal() {
 async function handleCreateLead(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-save-lead');
+  const isEditing = editingLeadId !== null;
+  const leadId = editingLeadId;
   btn.disabled = true;
-  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Analyzing with AI...</span>';
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>${isEditing ? 'Saving changes...' : 'Analyzing with AI...'}</span>`;
   if (window.lucide) lucide.createIcons();
 
   const payload = {
@@ -445,32 +486,35 @@ async function handleCreateLead(e) {
   };
 
   try {
-    const res = await fetch('/api/leads', {
-      method: 'POST',
+    const res = await fetch(isEditing ? `/api/leads/${leadId}` : '/api/leads', {
+      method: isEditing ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
       const error = await res.json().catch(() => ({}));
-      throw new Error(error.detail || 'Failed to create lead');
+      throw new Error(error.detail || (isEditing ? 'Failed to update lead' : 'Failed to create lead'));
     }
-    const newLead = await res.json();
+    const savedLead = await res.json();
     closeModal('modal-new-lead');
-    showToast('Lead created and analyzed by AI!', 'success');
+    editingLeadId = null;
+    showToast(isEditing ? 'Lead updated successfully!' : 'Lead created and analyzed by AI!', 'success');
 
     // A saved lead can otherwise be hidden by a search or priority filter that
     // was left active before opening the form.  Reset those filters and wait
-    // until the pipeline has reloaded before showing the new lead's details.
+    // until the pipeline has reloaded before showing the saved lead's details.
     document.getElementById('filter-search').value = '';
     document.getElementById('filter-priority').value = 'All';
     switchTab('table');
     await refreshAllData();
-    openLeadDetailModal(newLead.id);
+    openLeadDetailModal(savedLead.id);
   } catch (err) {
-    showToast('Error creating lead: ' + err.message, 'error');
+    showToast((isEditing ? 'Error updating lead: ' : 'Error creating lead: ') + err.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<i data-lucide="sparkles" class="w-4 h-4"></i><span>Save & Run AI</span>';
+    btn.innerHTML = editingLeadId !== null
+      ? '<i data-lucide="save" class="w-4 h-4"></i><span>Save Changes</span>'
+      : '<i data-lucide="sparkles" class="w-4 h-4"></i><span>Save & Run AI</span>';
     if (window.lucide) lucide.createIcons();
   }
 }

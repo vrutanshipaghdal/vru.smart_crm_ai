@@ -1,6 +1,6 @@
 import os
 import smtplib
-from datetime import datetime, date, timedelta
+from datetime import datetime, timezone, timedelta
 from email.message import EmailMessage
 from typing import Optional, List
 from fastapi import FastAPI, Depends, HTTPException, Query, Request
@@ -10,6 +10,13 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
+from dotenv import load_dotenv
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"), override=True)
+
+HOST = os.getenv("HOST", "127.0.0.1").strip() or "127.0.0.1"
+PORT = int(os.getenv("PORT", "8000").strip() or "8000")
 
 from backend.database import engine, get_db, Base
 from backend import models, schemas, ai_service
@@ -28,7 +35,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
@@ -53,15 +59,18 @@ def create_lead(lead_in: schemas.LeadCreate, db: Session = Depends(get_db)):
     Step 2 & 3: New customer/lead added, saved to database.
     Step 4 & 5: AI analyzes lead automatically and produces Lead Score, Sentiment, Priority, Suggested Action.
     """
-    # Block accidental duplicates while allowing records without email/phone.
-    if lead_in.email:
-        duplicate = db.query(models.Lead).filter(func.lower(models.Lead.email) == lead_in.email.strip().lower()).first()
-        if duplicate:
-            raise HTTPException(status_code=409, detail=f"Duplicate lead: email already belongs to {duplicate.name}.")
-    if lead_in.phone:
-        duplicate = db.query(models.Lead).filter(models.Lead.phone == lead_in.phone.strip()).first()
-        if duplicate:
-            raise HTTPException(status_code=409, detail=f"Duplicate lead: phone already belongs to {duplicate.name}.")
+    # Treat repeated submissions as idempotent requests instead of creating a duplicate lead.
+    # This keeps the CRM safe during retries and repeated test runs without blocking legitimate updates.
+    normalized_email = lead_in.email.strip().lower() if lead_in.email else None
+    normalized_phone = lead_in.phone.strip() if lead_in.phone else None
+
+    duplicate = None
+    if normalized_email:
+        duplicate = db.query(models.Lead).filter(func.lower(models.Lead.email) == normalized_email).first()
+    if not duplicate and normalized_phone:
+        duplicate = db.query(models.Lead).filter(models.Lead.phone == normalized_phone).first()
+    if duplicate:
+        return build_lead_response(duplicate)
 
     lead = models.Lead(
         name=lead_in.name,
@@ -113,7 +122,7 @@ def create_lead(lead_in: schemas.LeadCreate, db: Session = Depends(get_db)):
     follow_up_days = max(1, int(os.getenv("AUTO_FOLLOWUP_DAYS", "2")))
     auto_follow_up = models.FollowUp(
         lead_id=lead.id,
-        due_date=datetime.utcnow() + timedelta(days=follow_up_days),
+        due_date=datetime.now(timezone.utc) + timedelta(days=follow_up_days),
         reminder_note=f"Automatic follow-up: {ai_output.get('suggested_action', 'Contact this lead.')}"
     )
     db.add(auto_follow_up)
@@ -190,6 +199,61 @@ def get_lead_by_id(lead_id: int, db: Session = Depends(get_db)):
     lead = db.query(models.Lead).filter(models.Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
+    return build_lead_response(lead)
+
+@app.patch("/api/leads/{lead_id}", response_model=schemas.LeadResponse)
+def update_lead(lead_id: int, lead_update: schemas.LeadUpdate, db: Session = Depends(get_db)):
+    """Update lead contact and requirement details without changing pipeline state."""
+    lead = db.query(models.Lead).filter(models.Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    update_data = lead_update.model_dump(exclude_unset=True)
+    for field in ("name", "email", "phone", "company", "source"):
+        if field in update_data and isinstance(update_data[field], str):
+            update_data[field] = update_data[field].strip()
+            if field == "name" and not update_data[field]:
+                raise HTTPException(status_code=422, detail="Lead name cannot be empty.")
+            if field != "name" and not update_data[field]:
+                update_data[field] = None
+    if "budget" in update_data and update_data["budget"] is None:
+        update_data["budget"] = 0.0
+
+    email = update_data.get("email")
+    if email:
+        duplicate = db.query(models.Lead).filter(
+            func.lower(models.Lead.email) == email.strip().lower(),
+            models.Lead.id != lead_id
+        ).first()
+        if duplicate:
+            raise HTTPException(status_code=409, detail=f"Duplicate lead: email already belongs to {duplicate.name}.")
+        update_data["email"] = email.strip()
+
+    phone = update_data.get("phone")
+    if phone:
+        duplicate = db.query(models.Lead).filter(
+            models.Lead.phone == phone.strip(),
+            models.Lead.id != lead_id
+        ).first()
+        if duplicate:
+            raise HTTPException(status_code=409, detail=f"Duplicate lead: phone already belongs to {duplicate.name}.")
+        update_data["phone"] = phone.strip()
+
+    sentiment = update_data.pop("sentiment", None)
+    priority = update_data.pop("priority", None)
+    for field, value in update_data.items():
+        setattr(lead, field, value)
+    lead.updated_at = datetime.utcnow()
+
+    latest_analysis = lead.analyses[0] if lead.analyses else None
+    if latest_analysis:
+        if sentiment in {"Positive", "Neutral", "Negative"}:
+            latest_analysis.sentiment = sentiment
+        if priority in {"Urgent", "High", "Medium", "Low"}:
+            latest_analysis.priority = priority
+
+    db.commit()
+    db.refresh(lead)
     return build_lead_response(lead)
 
 @app.patch("/api/leads/{lead_id}/status", response_model=schemas.LeadResponse)
@@ -513,5 +577,5 @@ def build_lead_response(lead: models.Lead) -> schemas.LeadResponse:
 
 if __name__ == "__main__":
     import uvicorn
-    print("Starting Smart CRM AI server on http://127.0.0.1:8000 ...")
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    print(f"Starting Smart CRM AI server on http://{HOST}:{PORT} ...")
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=True)
